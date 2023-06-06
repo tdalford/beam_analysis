@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+import numpy as np
+import matplotlib.pyplot as plt
+
+import utils
+
+
+def plot_2d(x, y, beam_complex, z, suptitle='',
+            norm_factor=None, plot_phase_dot=False, **colormesh_kwargs):
+    # z = np.transpose(z)
+    # beam_complex = np.transpose(beam_complex)
+
+    db_signal = utils.to_db(beam_complex, norm_factor=norm_factor)
+    # signal = (abs(beam_complex) / np.max(abs(beam_complex))) ** 2
+    print(f"max power level={np.max(abs(beam_complex)):.3e}")
+
+    plt.figure(figsize=(8, 3.5))
+    plt.subplot(1, 2, 1)
+    plt.pcolormesh(x, y, z)
+    if plot_phase_dot:
+        # plt.scatter([3.2], [-9.8])
+        plt.scatter([0], [0])
+    plt.title("Phase")
+    plt.xlabel('x [cm]')
+    plt.ylabel('y [cm]')
+    plt.colorbar(label='Phase')
+    # plt.axis("equal")
+    plt.subplot(1, 2, 2)
+    if 'vmin' in colormesh_kwargs:
+        plt.pcolormesh(x, y, db_signal, shading='auto', **colormesh_kwargs)
+    else:
+        plt.pcolormesh(x, y, db_signal, shading='auto', **colormesh_kwargs,
+                       vmin=-50, vmax=0)
+    plt.title("Power [dB]")
+    plt.xlabel('x [cm]')
+    plt.ylabel('y [cm]')
+    # plt.axis("equal")
+    plt.colorbar(label='Power')
+    plt.suptitle(suptitle)
+    plt.tight_layout()
+    return
+
+
+def plot_beam(x2d, y2d, beam, title='', convert_to_db=True, norm_factor=None):
+    if convert_to_db:
+        beam = utils.to_db(beam, norm_factor=norm_factor)
+        plt.pcolormesh(x2d, y2d, beam, shading='auto', vmin=-40,
+                       vmax=np.max(beam))
+    else:
+        plt.pcolormesh(x2d, y2d, beam, shading='auto')
+    plt.title(title)
+    plt.xlabel("cm")
+    plt.ylabel("cm")
+    if convert_to_db:
+        plt.colorbar(label="dB")
+    else:
+        plt.colorbar()
+    return
+
+
+def plot_farfield(x, y, beam_ff, ax=None, plot_colorbar=True,
+                  **colormesh_kwargs):
+    if ax is None:
+        _, ax = plt.subplots(figsize=(5, 4))
+    cols = ax.pcolormesh(x, y, utils.to_db(abs(beam_ff)),
+                         shading='auto', **colormesh_kwargs)
+    if plot_colorbar:
+        plt.colorbar(cols, ax=ax)
+    return cols
+
+
+def plot_data_cuts(cut_data, log=True):
+    plt.plot(cut_data['cut_x_vals'] - cut_data['center'][0], cut_data['cut_x'],
+             label=f'x: {cut_data["x_fwhm"]:.3f}')
+    plt.plot(cut_data['cut_y_vals'] - cut_data['center'][1], cut_data['cut_y'],
+             label=f'y: {cut_data["y_fwhm"]: .3f}')
+    plt.plot(cut_data['cut_45_vals'][2], cut_data['cut_45'],
+             label=f'45: {cut_data["45_fwhm"]: .3f}')
+    plt.plot(cut_data['cut_135_vals'][2], cut_data['cut_135'],
+             label=f'135: {cut_data["135_fwhm"]: .3f}')
+    plt.plot(cut_data['radii'], cut_data['means'],
+             label=f'rad: {cut_data["rad_fwhm"]: .3f}', color='tab:purple')
+    plt.plot(-cut_data['radii'], cut_data['means'], color='tab:purple')
+    plt.legend(title="1d cut FWHM")
+    if log:
+        plt.yscale('log')
+    plt.xlabel('far-field offset [arcmin]')
+    plt.ylabel('beam taper on cut line')
+    return
