@@ -2,5 +2,5 @@
 
 Modules for analyzing and plotting near and far field beams.
 
-Try installing via `pip install -e .` which will allow you to make local edits
+Try installing via ~pip install -e .~ which will allow you to make local edits
 to the package.
