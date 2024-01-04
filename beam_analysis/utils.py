@@ -17,9 +17,14 @@ def get_arr_inds_closest_to_point(X, Y, point):
 
 
 def multi_cuts(x, y, amp, est_center=True,
-               center_guess=(0, 0), center_est_rad=5, center_est_func="max",
+               center_guess=(0, 0), center_est_rad=5, center_est_func="est",
                max_r='auto', rad_bin_size=0.2, keep_len='auto'):
     '''Assumed amplitude is NOT squared'''
+    # Make sure the arrays are inputted as we want.
+    if np.sum(np.diff(x[0]) != 0):
+        raise Exception("x array is not in the correct format!")
+    if np.sum(np.diff(y[:, 0]) != 0):
+        raise Exception("y array is not in the correct format!")
     power = (amp ** 2)
     index = get_max_ind(amp)
     max_point = (x[index], y[index])
@@ -104,7 +109,8 @@ def multi_cuts(x, y, amp, est_center=True,
             'x_fwhm': cut_x_fwhm, 'y_fwhm': cut_y_fwhm,
             '45_fwhm': cut_45_fwhm, '135_fwhm': cut_135_fwhm,
             'radii': radii, 'means': means, 'rad_fwhm': rad_fwhm,
-            'index': index, 'square_center': square_center}
+            'index': index, 'square_center': square_center,
+            'amp': np.sqrt(power_square)}
     return data
 
 
@@ -246,7 +252,7 @@ def roll_beam(beam, x_roll, y_roll):
 
 
 def restrict_beam(x2d, y2d, beam2d, beam_center, beam_size,
-                  return_beam=True):
+                  return_beam=True, noise_floor=1e-6):
     """restrict to within (x, y) within dist beam_size of beam_center.
 
     if return_beam is set to True, return the main beam region.
@@ -259,7 +265,7 @@ def restrict_beam(x2d, y2d, beam2d, beam_center, beam_size,
     else:
         bad_inds = np.where(np.sqrt((x2d - beam_center[0]) ** 2 + (
             y2d - beam_center[1]) ** 2) <= beam_size)
-    new_beam[bad_inds] = 0.0001
+    new_beam[bad_inds] = np.max(beam2d) * noise_floor
     return new_beam
 
 
@@ -358,5 +364,113 @@ def coords_spat_to_ang(x, y, freq):
     return x_ang, y_ang
 
 
+def coords_ang_to_spat(theta_x, theta_y, freq):
+    """
+    Coordinate transformation from angular to spatial.
+
+    theta_x and theta_y are in units of [rad]
+    Returns units of [m]
+    """
+    ff_ghz = freq * 1e9
+    # Get spatial coordinates
+    lam = (3 * 10 ** 8) / ff_ghz
+    delta_th = abs(np.max(theta_x) - np.min(theta_x)) / (
+        len(theta_x) - 1
+    )  # increment in azimuthal angle
+    delta_th = abs(np.max(theta_y) - np.min(theta_y)) / (
+        len(theta_y) - 1
+    )  # increment in azimuthal angle
+
+    x_len = len(theta_x)
+    y_len = len(theta_y)
+
+    alpha = lam / delta_th  # increment in x
+    beta = lam / delta_th
+
+    delta_x = alpha / x_len  # spatial coordinates conversion
+    delta_y = beta / y_len
+
+    x_spat = np.linspace(-int((len(theta_x) / 2)), int((len(
+        theta_x) / 2)), int((len(theta_x)))) * delta_x
+    y_spat = np.linspace(-int((len(theta_x) / 2)), int((len(
+        theta_x) / 2)), int((len(theta_x)))) * delta_y
+    x_spat, y_spat = np.meshgrid(x_spat, y_spat)
+    return x_spat, y_spat
+
+
 def sigma_to_fwhm(sigma):
-    return 2.355 * sigma
+    return 2 * np.sqrt(2 * np.log(2)) * sigma
+
+
+def freq_to_wavelength(freq):  # in GHz
+    c = 3e8
+    return c / (freq * 1e9)  # returns in m
+
+
+def arcmin2rad(x):
+    return (x / 60 / (180 / np.pi))
+
+
+def rad2arcmin(x):
+    return x * 60 * (180 / np.pi)
+
+def noise_floor(x, y, beam, center, beam_rad, set_level=1e-6, debug=False):
+    # set the main beam part to zero with given radius
+    beam = np.copy(beam)
+    beam = abs(beam) / np.max(abs(beam))
+    beam = restrict_beam(x, y, beam, center, beam_rad,
+                         noise_floor=set_level, return_beam=False)
+    beam[beam == set_level] = np.nan
+
+    if debug:
+        import matplotlib.pyplot as plt
+        plt.plot(beam)
+        plt.axhline(np.nanmedian(beam), )
+        plt.axhline(np.nanmedian(beam), color="black",
+                    label=f'noise floor = {np.nanmedian(beam):.1e}')
+        # print(f'{np.nanstd(beam):.2e}')
+        plt.yscale('log')
+        plt.legend()
+        plt.ylim(set_level, 1)
+        plt.show()
+    # take the median now
+    return np.nanmedian(beam)
+
+def corner_noise_floor(x, y, beam, center, beam_rad, set_level=1e-6,
+                       debug=False, corner_width=5):
+    # set the main beam part to zero with given radius
+    beam = np.copy(beam)
+    beam = abs(beam) / np.max(abs(beam))
+    # beam = restrict_beam(x, y, beam, center, beam_rad,
+    #                      noise_floor=set_level, return_beam=False)
+    # beam[beam == set_level] = 0
+    bottom_left = ((abs(x - np.min(x)) <= corner_width) & (
+        abs(y - np.min(y)) <= corner_width))
+    bottom_right = ((abs(x - np.max(x)) <= corner_width) & (
+        abs(y - np.min(y)) <= corner_width))
+    top_left = ((abs(x - np.min(x)) <= corner_width) & (
+        abs(y - np.max(y)) <= corner_width))
+    top_right = ((abs(x - np.max(x)) <= corner_width) & (
+        abs(y - np.max(y)) <= corner_width))
+    corners = np.where((bottom_left | bottom_right | top_left | top_right))
+    return np.nanmedian(beam[corners])
+
+    # beam[corners] = np.nan
+    import matplotlib.pyplot as plt
+    plt.pcolormesh(x, y, 10 * np.log10(beam), vmin=-30)
+    plt.colorbar()
+    plt.show()
+
+    if debug:
+        import matplotlib.pyplot as plt
+        plt.plot(beam)
+        plt.axhline(np.nanmedian(beam), )
+        plt.axhline(np.nanmedian(beam), color="black",
+                    label=f'noise floor = {np.nanmedian(beam):.1e}')
+        # print(f'{np.nanstd(beam):.2e}')
+        plt.yscale('log')
+        plt.legend()
+        plt.ylim(set_level, 1)
+        plt.show()
+    # take the median now
+    return np.nanmedian(beam)

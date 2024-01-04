@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import numpy as np
 import scipy
-import utils
+from . import utils
 
 PLOT_DIR = '/Users/talford/software/CMB/simons/holography/sat_holography_data/data/'
 FWHM_ESTIMATE = 25 / (60 * (180 / np.pi))  # in radians

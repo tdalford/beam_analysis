@@ -2,7 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-import utils
+from . import utils
 
 
 def plot_2d(x, y, beam_complex, z, suptitle='',
@@ -17,13 +17,14 @@ def plot_2d(x, y, beam_complex, z, suptitle='',
     plt.figure(figsize=(8, 3.5))
     plt.subplot(1, 2, 1)
     plt.pcolormesh(x, y, z)
+    plt.colorbar(label='Phase')
     if plot_phase_dot:
         # plt.scatter([3.2], [-9.8])
         plt.scatter([0], [0])
+        pass
     plt.title("Phase")
     plt.xlabel('x [cm]')
     plt.ylabel('y [cm]')
-    plt.colorbar(label='Phase')
     # plt.axis("equal")
     plt.subplot(1, 2, 2)
     if 'vmin' in colormesh_kwargs:
@@ -41,31 +42,38 @@ def plot_2d(x, y, beam_complex, z, suptitle='',
     return
 
 
-def plot_beam(x2d, y2d, beam, title='', convert_to_db=True, norm_factor=None):
+def plot_beam(x2d, y2d, beam, title='', convert_to_db=True,
+              norm_factor=None, plot_colorbar=True, unit='cm',
+              **colormesh_kwargs):
     if convert_to_db:
         beam = utils.to_db(beam, norm_factor=norm_factor)
-        plt.pcolormesh(x2d, y2d, beam, shading='auto', vmin=-40,
-                       vmax=np.max(beam))
+        if 'vmin' in colormesh_kwargs:
+            cols = plt.pcolormesh(
+                x2d, y2d, beam, shading='auto', **colormesh_kwargs)
+        else:
+            cols = plt.pcolormesh(x2d, y2d, beam, shading='auto', **colormesh_kwargs,
+                                  vmin=-50)
     else:
-        plt.pcolormesh(x2d, y2d, beam, shading='auto')
+        cols = plt.pcolormesh(x2d, y2d, beam, shading='auto',
+                              **colormesh_kwargs)
     plt.title(title)
-    plt.xlabel("cm")
-    plt.ylabel("cm")
-    if convert_to_db:
+    plt.xlabel(unit)
+    plt.ylabel(unit)
+    if convert_to_db and plot_colorbar:
         plt.colorbar(label="dB")
-    else:
+    elif plot_colorbar:
         plt.colorbar()
-    return
+    return cols
 
 
 def plot_farfield(x, y, beam_ff, ax=None, plot_colorbar=True,
-                  **colormesh_kwargs):
+                  clabel='[dB]', **colormesh_kwargs):
     if ax is None:
         _, ax = plt.subplots(figsize=(5, 4))
     cols = ax.pcolormesh(x, y, utils.to_db(abs(beam_ff)),
                          shading='auto', **colormesh_kwargs)
     if plot_colorbar:
-        plt.colorbar(cols, ax=ax)
+        plt.colorbar(cols, ax=ax, label=clabel)
     return cols
 
 
@@ -87,3 +95,9 @@ def plot_data_cuts(cut_data, log=True):
     plt.xlabel('far-field offset [arcmin]')
     plt.ylabel('beam taper on cut line')
     return
+
+
+def plot_beam_stamp(cut_data, **plot_kwargs):
+    # power is already squared, so take sqrt to convert to amplitude
+    return plot_beam(cut_data['x'], cut_data['y'], np.sqrt(cut_data['power']),
+                     convert_to_db=True, **plot_kwargs)

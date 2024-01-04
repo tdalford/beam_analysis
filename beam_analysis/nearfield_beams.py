@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import numpy as np
 import matplotlib.pyplot as plt
-import utils
-import plot_beams
+from . import utils
+from . import plot_beams
 
 
 def beam_convolve_forward(x, y, beam, apert1, apert2, plot=False):
