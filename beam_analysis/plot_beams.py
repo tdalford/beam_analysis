@@ -57,8 +57,9 @@ def plot_beam(x2d, y2d, beam, title='', convert_to_db=True,
         cols = plt.pcolormesh(x2d, y2d, beam, shading='auto',
                               **colormesh_kwargs)
     plt.title(title)
-    plt.xlabel(unit)
-    plt.ylabel(unit)
+    if unit is not None:
+        plt.xlabel(f'[{unit}]')
+        plt.ylabel(f'[{unit}]')
     if convert_to_db and plot_colorbar:
         plt.colorbar(label="dB")
     elif plot_colorbar:
@@ -67,13 +68,18 @@ def plot_beam(x2d, y2d, beam, title='', convert_to_db=True,
 
 
 def plot_farfield(x, y, beam_ff, ax=None, plot_colorbar=True,
-                  clabel='[dB]', **colormesh_kwargs):
+                  clabel='[dB]', unit='arcmin', title='',
+                  **colormesh_kwargs):
     if ax is None:
         _, ax = plt.subplots(figsize=(5, 4))
     cols = ax.pcolormesh(x, y, utils.to_db(abs(beam_ff)),
                          shading='auto', **colormesh_kwargs)
     if plot_colorbar:
         plt.colorbar(cols, ax=ax, label=clabel)
+    if unit is not None:
+        ax.set_xlabel(f'[{unit}]')
+        ax.set_ylabel(f'[{unit}]')
+    ax.set_title(title)
     return cols
 
 
@@ -87,8 +93,8 @@ def plot_data_cuts(cut_data, log=True):
     plt.plot(cut_data['cut_135_vals'][2], cut_data['cut_135'],
              label=f'135: {cut_data["135_fwhm"]: .3f}')
     plt.plot(cut_data['radii'], cut_data['means'],
-             label=f'rad: {cut_data["rad_fwhm"]: .3f}', color='tab:purple')
-    plt.plot(-cut_data['radii'], cut_data['means'], color='tab:purple')
+             label=f'rad: {cut_data["rad_fwhm"]: .3f}', color='black', lw=2)
+    plt.plot(-cut_data['radii'], cut_data['means'], color='black', lw=2)
     plt.legend(title="1d cut FWHM")
     if log:
         plt.yscale('log')

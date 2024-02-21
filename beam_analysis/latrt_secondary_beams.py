@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import numpy as np
 from . import utils
+from shapely import Polygon
 
 
 def get_mid_region(x, y, beam):
@@ -52,3 +53,15 @@ def b2a(beam, phase):
     aper_field = np.fft.fftshift(tmp)
     aper_phase = np.arctan2(np.imag(aper_field), np.real(aper_field))
     return aper_field, aper_phase
+
+
+def get_poly():
+    a = 1.4 + .35
+    b = 2.1 + .35
+    c = 3.15
+    p  = Polygon([(-a, c), (a, c), (a, b), (b, b), (b, a),
+                (c, a), (c, -a), (b, -a), (b, -b), (a, -b),
+                (a, -c), (-a, -c), (-a, -b), (-b, -b), (-b, -a),
+                (-c, -a), (-c, a), (-b, a), (-b, b), (-a, b), (-a, c)])
+    px, py = p.exterior.xy
+    return px, py

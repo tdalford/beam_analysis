@@ -18,13 +18,15 @@ def get_arr_inds_closest_to_point(X, Y, point):
 
 def multi_cuts(x, y, amp, est_center=True,
                center_guess=(0, 0), center_est_rad=5, center_est_func="est",
-               max_r='auto', rad_bin_size=0.2, keep_len='auto'):
+               max_r='auto', rad_bin_size='auto', keep_len='auto'):
     '''Assumed amplitude is NOT squared'''
     # Make sure the arrays are inputted as we want.
     if np.sum(np.diff(x[0]) != 0):
-        raise Exception("x array is not in the correct format!")
+        # print("swapping x and y for the cuts...")
+        y, x = x, y
+        amp = amp.T
     if np.sum(np.diff(y[:, 0]) != 0):
-        raise Exception("y array is not in the correct format!")
+        raise Exception("arrays are not in the correct format!")
     power = (amp ** 2)
     index = get_max_ind(amp)
     max_point = (x[index], y[index])
@@ -93,11 +95,13 @@ def multi_cuts(x, y, amp, est_center=True,
     cut_135_r[:keep_len // 2] *= -1
     cut_135_fwhm = get_fwhm(
         cut_135_r, cut_135, interpolate=True)[2]
+    # take a radial cut
+    if rad_bin_size == 'auto':
+        ydiff = np.diff(y[0])[0]
+        rad_bin_size = ydiff / 1.4
     radii, means = rad_avg(
         x_square - center_estimate[0], y_square - center_estimate[1],
         np.sqrt(power_square), 0, max_r, rad_bin_size, shift_center=False)
-    # plt.plot(radii, means)
-    # plt.show()
     rad_fwhm = get_fwhm_radial_bins(
         radii, means, interpolate=True)
     data = {'center': center_estimate, 'power': power_square, 'x': x_square,
@@ -209,13 +213,16 @@ def rad_avg(x_arr, y_arr, beam, rmin, rmax, inc, shift_center,
         return (abs(beam) ** 2)[(r_i >= r_b - (inc)) & (r_i < r_b + (
             inc))].mean()
 
-    r_phi = np.linspace(rmin, rmax, num=200)
+    # Adjust old code from grace: remove magic number to make this scalable
+    # r_phi = np.linspace(rmin, rmax, num=200)
+    r_phi = np.arange(rmin, rmax, inc)
 
     mean = np.vectorize(rad_bins)(r_phi)
 
     max_mean = np.max(mean[np.where(np.isnan(mean) == False)])
 
-    return r_phi, mean / max_mean
+    # don't divide by maximum yet
+    return r_phi, mean# / max_mean
 
 
 def centroid(x_arr, y_arr, data, data_limits=None):
@@ -424,6 +431,7 @@ def noise_floor(x, y, beam, center, beam_rad, set_level=1e-6, debug=False):
 
     if debug:
         import matplotlib.pyplot as plt
+        from . import plot_beams as pb
         plt.plot(beam)
         plt.axhline(np.nanmedian(beam), )
         plt.axhline(np.nanmedian(beam), color="black",
@@ -432,6 +440,8 @@ def noise_floor(x, y, beam, center, beam_rad, set_level=1e-6, debug=False):
         plt.yscale('log')
         plt.legend()
         plt.ylim(set_level, 1)
+        plt.show()
+        pb.plot_beam(x, y, abs(beam), norm_factor=1)
         plt.show()
     # take the median now
     return np.nanmedian(beam)

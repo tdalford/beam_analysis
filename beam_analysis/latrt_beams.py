@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import numpy as np
 from . import nearfield_beams
+from . import utils
 
 
 def add_scatter_and_convolve(x_sim, y_sim, amp_sim, phase_sim,
@@ -32,6 +33,37 @@ def add_scatter_and_convolve(x_sim, y_sim, amp_sim, phase_sim,
     # bb_sim = (amp_sim / np.max(amp_sim))
     out = nearfield_beams.beam_convolve_forward(x_sim, y_sim, bb_sim, apert1=(
         apert_sizes[0]), apert2=(apert_sizes[1]))
+    return out
+
+def add_scatter_and_convolve_LF(x_sim, y_sim, amp_sim, phase_sim,
+                                apert_sizes=[0.5, 0.5]):
+    """Phase is in RADIANS"""
+    assert np.max(phase_sim) <= np.pi
+    val_mf2 = 5
+    scatter_term = np.where((x_sim <= 21) & (x_sim > -20) & ((y_sim-(
+        x_sim/1.5)) > -15) & ((y_sim+(x_sim/1.5)) > -15) & ((-y_sim-(
+            x_sim/1.5)) > -35) & ((-y_sim+(x_sim/1.5)) > -35), -(
+                x_sim**2 / 35)-35, -50)
+
+    phase_mod = (-3.5*(y_sim+20)**2) + (2*(x_sim)**2)
+    scatter_lin = 10**(scatter_term/20)
+    phase_term = np.where((x_sim <= 21) & (x_sim > -20) & ((y_sim-(
+        x_sim/1.5)) > -15) & ((y_sim+(x_sim/1.5)) > -15) & ((-y_sim-(
+            x_sim/1.5)) > -35) & ((-y_sim+(x_sim/1.5)) > -35), phase_mod, 0)
+    p_sim_temp = phase_term
+    phase_term = np.mod(p_sim_temp*np.pi/180, 2*np.pi)
+    scatter_beam = scatter_lin*np.exp(complex(0, 1)*phase_term)
+
+    amp_sim = np.where((x_sim <= 19) & (x_sim > -22) & ((y_sim-(
+        x_sim/1.4)) > -30) & ((y_sim + (x_sim/1.4)) > -30) & ((-y_sim-(
+            x_sim/1.8) + 0) > -20) & ((-y_sim+(x_sim/1.8) + 3) > -20),
+        (utils.normalize(amp_sim)), 1e-4)
+    b_sim = (amp_sim/np.max(amp_sim)) * \
+        np.exp(complex(0, 1)*np.mod(phase_sim, 2*np.pi))
+    bb_sim = b_sim + scatter_beam
+    out = nearfield_beams.beam_convolve_forward(x_sim, y_sim, bb_sim, apert1=(
+        apert_sizes[0]), apert2=(apert_sizes[1]))
+    # out = bb_sim
     return out
 
 
@@ -118,8 +150,8 @@ def get_beam_data_2d(txt_file):
         #     arr_y))
 
         P = amp_cross.reshape(len(arr_x), len(arr_y))
-        # P = np.sqrt(amp_AA).reshape(len(arr_x), len(arr_y))
-        # P = np.sqrt(amp_BB).reshape(len(arr_x), len(arr_y))
+        # P = amp_AA.reshape(len(arr_x), len(arr_y))
+        # P = (amp_BB).reshape(len(arr_x), len(arr_y))
         # P = amp_var.reshape(len(arr_x), len(arr_y))
         Z = phase.reshape(len(arr_x), len(arr_y))
 
